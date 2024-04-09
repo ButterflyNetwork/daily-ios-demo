@@ -46,9 +46,7 @@ class LoopingVideoSource: CustomVideoSource {
         // Attach a workaround mechanism for the player unexpectedly stalling
         // when leaving a call.
         // I have no explanation for why this stalling occurs :/
-        self.playerStoppedObservation = Self.attachWorkaroundForPlayerStallingOnLeave(
-            player: player
-        )
+        self.playerStoppedObservation = player.attachWorkaroundForPlayerStallingOnLeave()
         
         DispatchQueue.main.async {
             player.play()
@@ -68,21 +66,18 @@ class LoopingVideoSource: CustomVideoSource {
     }
     
     private func setup() {
-        let templatePlayerItem = Self.createTemplatePlayerItem()
-        let loopingPlayer = Self.createLoopingPlayer(
-            templatePlayerItem: templatePlayerItem
-        )
-        self.player = loopingPlayer.player
-        self.playerLooper = loopingPlayer.playerLooper
+        let templatePlayerItem = AVPlayerItem.templatePlayerItem()
+        let player = AVQueuePlayer.player()
+        let playerLooper = AVPlayerLooper(player: player, templateItem: templatePlayerItem)
+        self.player = player
+        self.playerLooper = playerLooper
         
         // The looping player plays a sequence of replicas of the template
         // player item. Listen for each time the currently-playing item changes
         // to a new replica, and start getting output from that item.
-        self.currentPlayerItemObservation = loopingPlayer.player.observe(\.currentItem) { [weak self] player, _ in
+        self.currentPlayerItemObservation = player.observe(\.currentItem) { [weak self] player, _ in
             guard let self, let playerItem = player.currentItem else { return }
-            self.currentPlayerItemOutput = Self.wireUpCurrentPlayerItemOutput(
-                playerItem: playerItem
-            )
+            self.currentPlayerItemOutput = playerItem.wireUpCurrentPlayerItemOutput()
         }
         
         // Check continually for newly-available frames from the current player
@@ -93,66 +88,7 @@ class LoopingVideoSource: CustomVideoSource {
         )
         self.displayLink?.add(to: .main, forMode: .common)
     }
-    
-    private static func createTemplatePlayerItem() -> AVPlayerItem {
-        let url = Bundle.main.url(forResource: "movie", withExtension: "mp4")!
-        return AVPlayerItem(url: url)
-    }
-    
-    private static func createLoopingPlayer(
-        templatePlayerItem: AVPlayerItem
-    ) -> (player: AVQueuePlayer, playerLooper: AVPlayerLooper) {
-        let player = AVQueuePlayer()
-        player.isMuted = true
-        let playerLooper = AVPlayerLooper(
-            player: player,
-            templateItem: templatePlayerItem
-        )
-        return (player, playerLooper)
-    }
-    
-    private static func wireUpCurrentPlayerItemOutput(
-        playerItem: AVPlayerItem
-    ) -> AVPlayerItemVideoOutput {
-        let output = AVPlayerItemVideoOutput(pixelBufferAttributes: [
-            String(kCVPixelBufferPixelFormatTypeKey): kCVPixelFormatType_32BGRA
-        ])
-        playerItem.add(output)
-        return output
-    }
-    
-    private static func attachWorkaroundForPlayerStallingOnLeave(
-        player: AVQueuePlayer
-    ) -> NSKeyValueObservation {
-        player.observe(\.rate, options: [.old, .new]) { player, change in
-            guard
-                let oldRate = change.oldValue,
-                let newRate = change.newValue
-            else {
-                // This should be impossible
-                return
-            }
-            if oldRate > 0 && newRate == 0 {
-                // Restart stalled player
-                player.play()
-            }
-        }
-    }
-    
-    // Convert a specific time in the current video loop to the "overall" time
-    // (i.e. the amount of time that has elapsed since the video started
-    // playing).
-    private static func convertCurrentLoopTimeToOverallTimeNs(
-        currentLoopTime: CMTime,
-        numberOfPriorLoops: Int,
-        loopDuration: CMTime
-    ) -> Int64 {
-        return (
-            currentLoopTime.toNs() +
-            Int64(numberOfPriorLoops) * loopDuration.toNs()
-        )
-    }
-    
+
     // MARK: - AVPlayerItemOutputPullDelegate
     
     @objc func checkForNewlyAvailableFrame() {
@@ -185,7 +121,7 @@ class LoopingVideoSource: CustomVideoSource {
         // player items are the same duration (they're copies of the template).
         // Ideally we could use the template item directly, but its duration
         // isn't ever loaded since it's never played.
-        let overallTimeNs = Self.convertCurrentLoopTimeToOverallTimeNs(
+        let overallTimeNs = CMTime.convertCurrentLoopTimeToOverallTimeNs(
             currentLoopTime: itemTime,
             numberOfPriorLoops: playerLooper.loopCount,
             loopDuration: playerItem.duration
@@ -208,5 +144,72 @@ extension CMTime {
         }
         
         return selfWithNsTimescale.value
+    }
+}
+
+extension AVPlayerItem {
+    static func templatePlayerItem() -> AVPlayerItem {
+        let url = Bundle.main.url(forResource: "movie", withExtension: "mp4")!
+        return AVPlayerItem(url: url)
+    }
+
+    func wireUpCurrentPlayerItemOutput() -> AVPlayerItemVideoOutput {
+        let output = AVPlayerItemVideoOutput(
+            pixelBufferAttributes: [String(kCVPixelBufferPixelFormatTypeKey): kCVPixelFormatType_32BGRA]
+        )
+        add(output)
+        return output
+    }
+}
+
+//private static func createLoopingPlayer(
+//    templatePlayerItem: AVPlayerItem
+//) -> (player: AVQueuePlayer, playerLooper: AVPlayerLooper) {
+//    let player = AVQueuePlayer()
+//    player.isMuted = true
+//    let playerLooper = AVPlayerLooper(
+//        player: player,
+//        templateItem: templatePlayerItem
+//    )
+//    return (player, playerLooper)
+//}
+
+extension AVQueuePlayer {
+    static func player() -> AVQueuePlayer {
+        let player = AVQueuePlayer()
+        player.isMuted = true
+        return player
+    }
+
+    func attachWorkaroundForPlayerStallingOnLeave() -> NSKeyValueObservation {
+        observe(\.rate, options: [.old, .new]) { player, change in
+            guard
+                let oldRate = change.oldValue,
+                let newRate = change.newValue
+            else {
+                // This should be impossible
+                return
+            }
+            if oldRate > 0 && newRate == 0 {
+                // Restart stalled player
+                player.play()
+            }
+        }
+    }
+}
+
+// Convert a specific time in the current video loop to the "overall" time
+// (i.e. the amount of time that has elapsed since the video started
+// playing).
+extension CMTime {
+    static func convertCurrentLoopTimeToOverallTimeNs(
+        currentLoopTime: CMTime,
+        numberOfPriorLoops: Int,
+        loopDuration: CMTime
+    ) -> Int64 {
+        return (
+            Int64(currentLoopTime.seconds + Double(numberOfPriorLoops) * loopDuration.seconds)
+            //        currentLoopTime.toNs() + Int64(numberOfPriorLoops) * loopDuration.toNs()
+        )
     }
 }

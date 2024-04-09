@@ -24,12 +24,9 @@ class CallViewController: UIViewController {
     @IBOutlet private weak var cameraFlipViewButton: UIButton!
     @IBOutlet private weak var adaptiveHEVCButton: UIButton!
 
-    
     @IBOutlet private weak var joinOrLeaveButton: UIButton!
     @IBOutlet private weak var tokenField: UITextField!
     @IBOutlet private weak var roomURLField: UITextField!
-    
-    @IBOutlet private weak var localViewToggleButton: UIButton!
 
     @IBOutlet private weak var localParticipantContainerView: UIView!
     @IBOutlet private weak var remoteParticipantContainerView: UIView!
@@ -37,81 +34,41 @@ class CallViewController: UIViewController {
 
     @IBOutlet private weak var buttonStackView: UIStackView!
 
-    @IBOutlet private weak var aspectRatioConstraint: NSLayoutConstraint!
+    @IBOutlet private weak var localAspectRatioConstraint: NSLayoutConstraint!
     @IBOutlet private weak var bottomConstraint: NSLayoutConstraint!
-    
+
     // TODO refactor
     @IBOutlet private weak var pickerViewButton: UIButton!
-    
+
     private weak var localParticipantViewController: LocalParticipantViewController! {
         didSet {
-            self.localParticipantViewControllerDidChange(
-                self.localParticipantViewController
-            )
+            localParticipantViewControllerDidChange(localParticipantViewController)
         }
     }
-    
+
     private weak var remoteParticipantViewController: ParticipantViewController!
-    
+
     private lazy var callClient: CallClient = { [weak self] in
         let callClient = CallClient()
         callClient.delegate = self
         return callClient
     }()
-    
+
     // MARK: - Call state
 
     private var adaptiveHEVCEnabled: Bool = false
 
     private let userDefaults: UserDefaults = .standard
-    
+
     private var localVideoSizeObserver: AnyCancellable? = nil
-    
+
     private lazy var customVideoSource = LoopingVideoSource()
-
-    // MARK: - Date coding
-
-    // Cached customized ISO8601 date formatter:
-    private let dateFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        // The default `.iso8601` dateEncodingStrategy/dateDecodingStrategy
-        // doesn't support fractional seconds (aka milliseconds).
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    // The default `.iso8601` dateEncodingStrategy/dateDecodingStrategy
-    // doesn't support fractional seconds (aka milliseconds).
-    private var dateEncodingStrategy: JSONEncoder.DateEncodingStrategy {
-        .custom { (date, encoder) in
-            self.dateFormatter.string(from: date)
-        }
-    }
-
-    // The default `.iso8601` dateEncodingStrategy/dateDecodingStrategy
-    // doesn't support fractional seconds (aka milliseconds).
-    private var dateDecodingStrategy: JSONDecoder.DateDecodingStrategy {
-        .custom { decoder in
-            let formattedDate = try String(from: decoder)
-
-            guard let date = self.dateFormatter.date(from: formattedDate) else {
-                throw DecodingError.dataCorrupted(
-                    .init(
-                        codingPath: decoder.codingPath,
-                        debugDescription: "Expected date string to be ISO8601-formatted."
-                    )
-                )
-            }
-
-            return date
-        }
-    }
 
     // MARK: - Convenience getters
     
     private var roomURLString: String {
         get {
-            self.userDefaults.string(forKey: "roomURL") ?? ""
+            self.userDefaults.string(forKey: "roomURL") ?? "https://butterflynetwork.daily.co/LhjrtdiaAbM4fCFEfQOF"
         }
         set {
             self.userDefaults.set(newValue, forKey: "roomURL")
@@ -252,8 +209,9 @@ class CallViewController: UIViewController {
     }
     
     private func setupDevModeFeaturesViews() {
-        setDevModeFeaturesViewsHidden(true)
-        
+//        setDevModeFeaturesViewsHidden(true)
+        setDevModeFeaturesViewsHidden(false)
+
         let devModeToggleGesture = UILongPressGestureRecognizer(
             target: self,
             action: #selector(handleDevModeToggleGesture)
@@ -311,6 +269,7 @@ class CallViewController: UIViewController {
                 )
             )
         ), completion: nil)
+
         self.callClient.updateSubscriptionProfiles(.set([
             .base: .set(
                 camera: .set(
@@ -344,9 +303,9 @@ class CallViewController: UIViewController {
             $0.deviceID == selectedDeviceID
         } ?? 0
     }
-    
+
     // MARK: - Button actions
-    
+
     @IBAction private func flipCamera(_ sender: UIButton) {
         let isUsingFrontFacingCamera = self.callClient.inputs.camera.settings.facingMode == .user
         let newFacingMode: MediaTrackFacingMode = isUsingFrontFacingCamera ? .environment : .user
@@ -379,7 +338,7 @@ class CallViewController: UIViewController {
             ), completion: nil)
         }
     }
-    
+
     @IBAction private func showAudioDevicePicker(_ sender: Any) {
         let controller = UIViewController()
 
@@ -425,13 +384,13 @@ class CallViewController: UIViewController {
 
         self.present(alert, animated: true, completion: nil)
     }
-    
+
     @IBAction private func toggleLocalView(_ sender: UIButton) {
         sender.isSelected.toggle()
-        
+
         self.localParticipantViewController.isViewHidden = sender.isSelected
     }
-    
+
     @IBAction private func joinOrLeave(_ sender: UIButton) {
         let callState = self.callClient.callState
         switch callState {
@@ -460,12 +419,12 @@ class CallViewController: UIViewController {
             fatalError()
         }
     }
-    
+
     @IBAction private func toggleCameraInput(_ sender: UIButton) {
         let isEnabled = !self.callClient.inputs.camera.isEnabled
         self.callClient.setInputEnabled(.camera, isEnabled, completion: nil)
     }
-    
+
     @IBAction private func toggleMicrophoneInput(_ sender: UIButton) {
         let isEnabled = !self.callClient.inputs.microphone.isEnabled
         self.callClient.setInputEnabled(.microphone, isEnabled, completion: nil)
@@ -501,17 +460,17 @@ class CallViewController: UIViewController {
             }
         }
     }
-    
+
     @IBAction private func toggleCameraPublishing(_ sender: UIButton) {
         let isPublishing = !self.callClient.publishing.camera.isPublishing
         self.callClient.setIsPublishing(.camera, isPublishing, completion: nil)
     }
-    
+
     @IBAction private func toggleMicrophonePublishing(_ sender: UIButton) {
         let isPublishing = !self.callClient.publishing.microphone.isPublishing
         self.callClient.setIsPublishing(.microphone, isPublishing, completion: nil)
     }
-    
+
     @IBAction private func toggleCustomVideoPublishing(_ sender: UIButton) {
         let isPublishing = self.callClient.publishing.customVideo[customVideoName]?.isPublishing != true
         self.callClient.updatePublishing(.set(
@@ -519,41 +478,39 @@ class CallViewController: UIViewController {
                 customVideoName: .publishing(isPublishing)
             ]), completion: nil)
     }
-    
+
     // MARK: - Video size handling
-    
+
     func localParticipantViewControllerDidChange(_ controller: LocalParticipantViewController) {
         self.localVideoSizeObserver = controller.videoSizePublisher.sink { [weak self] size in
-            guard let self = self else { return }
-
-            self.localVideoSizeDidChange(size)
+            self?.localVideoSizeDidChange(size)
         }
     }
-    
+
     private func localVideoSizeDidChange(_ videoSize: CGSize) {
         // When the local video size changes we update its view's
         // aspect-ratio layout constraint accordingly:
-        
+
         guard videoSize != .zero else {
             // Make sure we don't divide by zero!
             return
         }
-        
+
         let aspectRatio: CGFloat = videoSize.width / videoSize.height
-        
+
         let containerView: UIView = self.localParticipantContainerView
-        
+
         // Setting a constraint's `isActive` to `false` also removes it:
-        self.aspectRatioConstraint.isActive = false
-        
+        self.localAspectRatioConstraint.isActive = false
+
         // So now we need to replace it with an updated constraint:
-        self.aspectRatioConstraint = containerView.widthAnchor.constraint(
+        self.localAspectRatioConstraint = containerView.widthAnchor.constraint(
             equalTo: containerView.heightAnchor,
             multiplier: aspectRatio
         )
-        self.aspectRatioConstraint.priority = .required
-        self.aspectRatioConstraint.isActive = true
-        
+        self.localAspectRatioConstraint.priority = .required
+        self.localAspectRatioConstraint.isActive = true
+
         UIView.animate(withDuration: 0.25) {
             self.view.setNeedsLayout()
         }
@@ -566,15 +523,15 @@ class CallViewController: UIViewController {
             self.buttonStackView.alpha = self.buttonStackView.alpha.isZero ? 1 : 0
         }
     }
-    
+
     @objc private func handleDevModeToggleGesture(
         _ sender: UILongPressGestureRecognizer
     ) {
         guard sender.state == .began else { return }
-        
+
         let isDevModeEnabled = !customVideoInputButton.isHidden
         guard !isDevModeEnabled else { return }
-        
+
         let alert = UIAlertController(
             title: "Enable dev mode?",
             message: nil,
@@ -593,9 +550,9 @@ class CallViewController: UIViewController {
 
     private func updateViews() {
         // Update views based on current state:
-        
+
         self.roomURLField.isEnabled = !self.isJoined
-        
+
         self.joinOrLeaveButton.isEnabled = self.canJoinOrLeave
         self.joinOrLeaveButton.isSelected = self.isJoined
         if (self.joinOrLeaveButton.isSelected) {
@@ -603,7 +560,7 @@ class CallViewController: UIViewController {
         } else {
             self.joinOrLeaveButton.accessibilityIdentifier = "robots-join-button"
         }
-        
+
         self.cameraInputButton.isSelected = !self.cameraIsEnabled
         self.cameraInputButton.accessibilityIdentifier = "robots-camera-input-\(!self.cameraIsEnabled)"
         self.microphoneInputButton.isSelected = !self.microphoneIsEnabled
@@ -620,7 +577,7 @@ class CallViewController: UIViewController {
 
         self.adaptiveHEVCButton.isSelected = self.adaptiveHEVCEnabled
     }
-    
+
     private func updateParticipantViewControllers() {
         // Update participant views based on current callClient state.
         // We play it safe and update both local and remote views since active
@@ -629,27 +586,26 @@ class CallViewController: UIViewController {
         self.update(localParticipant: participants.local)
         self.update(remoteParticipants: participants.remote)
     }
-    
+
     private func update(localParticipant: Participant) {
         self.localParticipantViewController.participant = localParticipant
-        self.localParticipantViewController.isActiveSpeaker = self.isActiveSpeaker(localParticipant)
     }
-    
+
     private func update(remoteParticipants: [ParticipantID: Participant]) {
         var remoteParticipantToDisplay: Participant?
-        
+
         // Choose a remote participant to display by going down the priority list:
         // 1. A screen sharer
         // 2. A custom video track sharer
         // 3. The active speaker
         // 4. Whoever was previously displayed (if anyone)
         // 5. Anyone else
-        
+
         // 1. If a remote participant is sharing their screen, choose them
         remoteParticipantToDisplay = remoteParticipants.values.first { participant in
             participant.media?.screenVideo.track != nil
         }
-        
+
         // 2. If a remote participant is sharing a custom video track, choose them
         if (remoteParticipantToDisplay == nil) {
             // Note that we can't check for the first available `track` here
@@ -660,14 +616,17 @@ class CallViewController: UIViewController {
                 participant.media?.customVideo.firstSubscribableTrackName != nil
             }
         }
-        
+
         // 3. If a remote participant is the active speaker, choose them
         if remoteParticipantToDisplay == nil {
-            if let activeSpeaker = self.callClient.activeSpeaker, !activeSpeaker.info.isLocal {
+            if
+                let activeSpeaker = self.callClient.activeSpeaker,
+                !activeSpeaker.info.isLocal
+            {
                 remoteParticipantToDisplay = remoteParticipants[activeSpeaker.id]
             }
         }
-        
+
         // 4. Choose whoever was previously displayed (if anyone)
         if remoteParticipantToDisplay == nil {
             if let previouslyDisplayedParticipantID = self.remoteParticipantViewController.participant?.id
@@ -675,25 +634,14 @@ class CallViewController: UIViewController {
                 remoteParticipantToDisplay = remoteParticipants[previouslyDisplayedParticipantID]
             }
         }
-        
+
         // 5. Choose anyone else (let's just go with the first remote participant)
         if remoteParticipantToDisplay == nil {
             remoteParticipantToDisplay = remoteParticipants.first?.value
         }
-        
+
         // Display the chosen remote participant (can be nil)
         self.remoteParticipantViewController.participant = remoteParticipantToDisplay
-        if let remoteParticipantToDisplay = remoteParticipantToDisplay {
-            self.remoteParticipantViewController.isActiveSpeaker = self.isActiveSpeaker(
-                remoteParticipantToDisplay)
-        } else {
-            self.remoteParticipantViewController.isActiveSpeaker = false
-        }
-    }
-    
-    private func isActiveSpeaker(_ participant: Participant) -> Bool {
-        let activeSpeaker = self.callClient.activeSpeaker
-        return activeSpeaker == participant
     }
 
     fileprivate func showPrebuiltChatAppMessageNotification(
@@ -718,7 +666,7 @@ class CallViewController: UIViewController {
         )
         center.add(request)
     }
-    
+
     @objc private func adjustForKeyboard(_ notification: Notification) {
         // When the keyboard is shown/hidden make sure to move the text field up/down accordingly:
 
@@ -784,7 +732,7 @@ extension CallViewController: UITextFieldDelegate {
     func textFieldDidEndEditing(_ textField: UITextField) {
         textField.resignFirstResponder()
     }
-    
+
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         // Hide the keyboard when user taps on "Return":
         return textField.endEditing(false)
@@ -819,11 +767,11 @@ extension CallViewController: CallClientDelegate {
         callStateUpdated callState: CallState
     ) {
         logger.debug("Call state updated: \(callState)")
-        
+
         assert(callClient.callState == callState)
-        
+
         updateViews()
-        
+
         if case .left = callClient.callState {
             self.localParticipantViewController.participant = nil
             self.remoteParticipantViewController.participant = nil
@@ -842,49 +790,49 @@ extension CallViewController: CallClientDelegate {
     ) {
         logger.debug("Inputs updated:")
         logger.debug("\(dumped(inputs))")
-        
+
         assert(callClient.inputs == inputs)
-        
+
         updateViews()
     }
-    
+
     func callClient(
         _ callClient: CallClient,
         publishingUpdated publishing: PublishingSettings
     ) {
         logger.debug("Publishing updated:")
         logger.debug("\(dumped(publishing))")
-        
+
         assert(callClient.publishing == publishing)
-        
+
         updateViews()
     }
-    
+
     func callClient(
         _ callClient: CallClient,
         participantJoined participant: Participant
     ) {
         logger.debug("Participant joined:")
         logger.debug("\(dumped(participant))")
-        
+
         // Check if our logic adds said participant to the collection from event...
         assert(callClient.participants.all[participant.id] != nil)
-        
+
         updateParticipantViewControllers()
     }
-    
+
     func callClient(
         _ callClient: CallClient,
         participantUpdated participant: Participant
     ) {
         logger.debug("Participant updated:")
         logger.debug("\(dumped(participant))")
-        
+
         assert(callClient.participants.all[participant.id] == participant)
-        
+
         updateParticipantViewControllers()
     }
-    
+
     func callClient(
         _ callClient: CallClient,
         participantLeft participant: Participant,
@@ -893,53 +841,53 @@ extension CallViewController: CallClientDelegate {
         logger.debug("Participant left:")
         logger.debug("\(dumped(participant))")
         logger.debug("\(reason)")
-        
+
         assert(callClient.participants.all[participant.id] == nil)
-        
+
         updateParticipantViewControllers()
     }
-    
+
     func callClient(
         _ callClient: CallClient,
         activeSpeakerChanged activeSpeaker: Participant?
     ) {
-        logger.debug("Active speaker changed:")
-        logger.debug("\(dumped(activeSpeaker))")
-        
-        assert(callClient.activeSpeaker == activeSpeaker)
-        
-        updateParticipantViewControllers()
+//        logger.debug("Active speaker changed:")
+//        logger.debug("\(dumped(activeSpeaker))")
+//
+//        assert(callClient.activeSpeaker == activeSpeaker)
+//
+//        updateParticipantViewControllers()
     }
-    
+
     func callClient(
         _ callClient: CallClient,
         subscriptionsUpdated subscriptions: SubscriptionSettingsByID
     ) {
         logger.debug("Subscriptions updated:")
         logger.debug("\(dumped(subscriptions))")
-        
+
         assert(callClient.subscriptions == subscriptions)
     }
-    
+
     func callClient(
         _ callClient: CallClient,
         subscriptionProfilesUpdated subscriptionProfiles: SubscriptionProfileSettingsByProfile
     ) {
         logger.debug("Subscriptions profiles updated:")
         logger.debug("\(dumped(subscriptionProfiles))")
-        
+
         assert(callClient.subscriptionProfiles == subscriptionProfiles)
     }
-    
+
     func callClient(
         _ callClient: CallClient,
         availableDevicesUpdated availableDevices: Devices
     ) {
         refreshSelectedAudioDevice()
-        
+
         assert(callClient.availableDevices == availableDevices)
     }
-    
+
     func callClient(
         _ callClient: CallClient,
         appMessageAsJson jsonData: Data,
@@ -948,7 +896,7 @@ extension CallViewController: CallClientDelegate {
         let chatMessage: PrebuiltChatAppMessage
 
         logger.info("Got app message from \(senderID)")
-        
+
         guard PrebuiltChatAppMessage.shouldExpectAppMessageToBePrebuiltChatMessage(jsonData) else {
             logger.info("Not a chat message")
             return
@@ -956,14 +904,13 @@ extension CallViewController: CallClientDelegate {
 
         do {
             let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = dateDecodingStrategy
+            decoder.dateDecodingStrategy = .iso8601Modified
             chatMessage = try decoder.decode(
                 PrebuiltChatAppMessage.self,
                 from: jsonData
             )
         } catch {
             logger.error("Chat message decoding error: \(error)")
-
             return
         }
 
@@ -974,14 +921,12 @@ extension CallViewController: CallClientDelegate {
             body: chatMessage.message
         )
 
-        guard chatMessage.message.starts(with: "/echo") else {
-            return
-        }
+        guard chatMessage.message.starts(with: "/echo") else { return }
 
         let messageData: Data
         do {
             let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = dateEncodingStrategy
+            encoder.dateEncodingStrategy = .iso8601Modified
             messageData = try encoder.encode(
                 PrebuiltChatAppMessage(
                     message: chatMessage.message,
@@ -1002,7 +947,7 @@ extension CallViewController: CallClientDelegate {
             }
         }
     }
-    
+
     func callClient(
         _ callClient: CallClient,
         transcriptionMessage: TranscriptionMessage
@@ -1016,7 +961,7 @@ extension CallViewController: CallClientDelegate {
     ) {
         logger.info("Transcription started: \(status)")
     }
-    
+
     func callClient(
         _ callClient: CallClient,
         transcriptionStoppedBy trigger: TranscriptionStopTrigger?
@@ -1079,5 +1024,45 @@ extension CallViewController: UIPickerViewDataSource {
         numberOfRowsInComponent component: Int
     ) -> Int {
         self.callClient.availableDevices.audio.count
+    }
+}
+
+// MARK: - Date coding
+
+extension ISO8601DateFormatter {
+    // Cached customized ISO8601 date formatter:
+    static let formatterWithFractionalSeconds: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        // The default `.iso8601` dateEncodingStrategy/dateDecodingStrategy
+        // doesn't support fractional seconds (aka milliseconds).
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+}
+
+extension JSONEncoder.DateEncodingStrategy {
+    // The default `.iso8601` dateEncodingStrategy/dateDecodingStrategy
+    // doesn't support fractional seconds (aka milliseconds).
+    static let iso8601Modified = JSONEncoder.DateEncodingStrategy.custom { date, encoder in
+        ISO8601DateFormatter.formatterWithFractionalSeconds.string(from: date)
+    }
+}
+
+// The default `.iso8601` dateEncodingStrategy/dateDecodingStrategy
+// doesn't support fractional seconds (aka milliseconds).
+extension JSONDecoder.DateDecodingStrategy {
+    static let iso8601Modified = JSONDecoder.DateDecodingStrategy.custom { decoder in
+        let formattedDate = try String(from: decoder)
+
+        guard let date = ISO8601DateFormatter.formatterWithFractionalSeconds.date(from: formattedDate) else {
+            throw DecodingError.dataCorrupted(
+                .init(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Expected date string to be ISO8601-formatted."
+                )
+            )
+        }
+
+        return date
     }
 }

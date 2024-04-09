@@ -5,12 +5,6 @@ import Combine
 import Daily
 
 class LocalParticipantViewController: UIViewController {
-    var isActiveSpeaker: Bool = false {
-        didSet {
-            self.didUpdate(isActiveSpeaker: self.isActiveSpeaker)
-        }
-    }
-
     var isViewHidden: Bool = false {
         didSet {
             UIView.animate(withDuration: 0.25, delay: 0.0) {
@@ -37,7 +31,6 @@ class LocalParticipantViewController: UIViewController {
         .zero
     )
 
-    @IBOutlet private weak var activeSpeakerImageView: UIImageView!
     @IBOutlet private weak var label: UILabel!
     @IBOutlet private weak var cameraPreviewView: CameraPreviewView!
 
@@ -50,10 +43,6 @@ class LocalParticipantViewController: UIViewController {
     }
 
     // MARK: - Handlers
-
-    private func didUpdate(isActiveSpeaker: Bool) {
-        self.activeSpeakerImageView.isHidden = !isActiveSpeaker
-    }
 
     private func didUpdate(participant: Participant?) {
         let cameraTrack = participant?.media?.camera.track
