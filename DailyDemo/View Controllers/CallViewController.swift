@@ -130,44 +130,46 @@ class CallViewController: UIViewController {
         self.setupCallClient()
         self.setupAuthorizations()
     }
-    
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        
+
         self.updateViews()
     }
-    
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        
+
         self.roomURLField.text = self.roomURLString
-        
+
         // Update inputs to enable/disable inputs prior to joining:
         // By default, we are always starting the demo app with the mic and camera on
-        self.callClient.setInputsEnabled([
-            .camera: true,
-            .microphone: true
-        ], completion: nil)
-        
-        // Update publishing to enable/disable publishing of inputs prior to joining:
-        self.callClient.setIsPublishing([
-            .camera: self.cameraIsPublishing,
-            .microphone: self.microphoneIsPublishing
-        ], completion: nil)
-        
-        self.refreshSelectedAudioDevice()
+        Task { @MainActor in
+            try await self.callClient.setInputsEnabled([
+                .camera: true,
+                .microphone: true
+            ])
+
+            // Update publishing to enable/disable publishing of inputs prior to joining:
+            try await self.callClient.setIsPublishing([
+                .camera: self.cameraIsPublishing,
+                .microphone: self.microphoneIsPublishing
+            ])
+
+            self.refreshSelectedAudioDevice()
+        }
     }
-    
+
     private func refreshSelectedAudioDevice() {
         let audioDeviceID = self.callClient.audioDevice.deviceID
-        
+
         let selectedDevice = self.callClient.availableDevices.audio.first {
             $0.deviceID == audioDeviceID
         }
-        
+
         self.pickerViewButton.setTitle(selectedDevice?.label, for: .normal)
     }
-    
+
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         switch segue.identifier {
         case "embedLocalContainerView":
@@ -190,7 +192,7 @@ class CallViewController: UIViewController {
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert]) { _, _ in }
     }
-    
+
     // Perform some minimal programmatic view setup:
     private func setupViews() {
         let localViewLayer = self.localParticipantViewController.view.layer
@@ -203,11 +205,11 @@ class CallViewController: UIViewController {
             action: #selector(handleTap)
         )
         self.remoteParticipantContainerView.addGestureRecognizer(tap)
-        
+
         self.systemBroadcastPickerView.preferredExtension = "co.daily.DailyDemo.DailyDemoScreenCaptureExtension"
         self.systemBroadcastPickerView.showsMicrophoneButton = false
     }
-    
+
     private func setupDevModeFeaturesViews() {
 //        setDevModeFeaturesViewsHidden(true)
         setDevModeFeaturesViewsHidden(false)
@@ -259,37 +261,39 @@ class CallViewController: UIViewController {
             object: nil
         )
     }
-    
-    private func setupCallClient() {
-        self.callClient.updatePublishing(.set(
-            camera: .set(
-                isPublishing: .set(self.cameraIsPublishing),
-                sendSettings: .set(
-                    allowAdaptiveLayers: .set(true)
-                )
-            )
-        ), completion: nil)
 
-        self.callClient.updateSubscriptionProfiles(.set([
-            .base: .set(
+    private func setupCallClient() {
+        Task { @MainActor in
+            _ = try await self.callClient.updatePublishing(.set(
                 camera: .set(
-                    receiveSettings: .set(
-                        maxQuality: .set(.low)
+                    isPublishing: .set(self.cameraIsPublishing),
+                    sendSettings: .set(
+                        allowAdaptiveLayers: .set(true)
                     )
                 )
-            ),
-            .activeRemote: .set(
-                camera: .set(
-                    receiveSettings: .set(
-                        maxQuality: .set(.high)
+            ))
+
+            _ = try await self.callClient.updateSubscriptionProfiles(.set([
+                .base: .set(
+                    camera: .set(
+                        receiveSettings: .set(
+                            maxQuality: .set(.low)
+                        )
+                    )
+                ),
+                .activeRemote: .set(
+                    camera: .set(
+                        receiveSettings: .set(
+                            maxQuality: .set(.high)
+                        )
                     )
                 )
-            )
-        ]), completion: nil)
+            ]))
+        }
     }
-    
+
     // MARK: Dev mode feature views
-    
+
     private func setDevModeFeaturesViewsHidden(_ hidden: Bool) {
         self.customVideoInputButton.isHidden = hidden
         self.customVideoPublishingButton.isHidden = hidden
@@ -310,32 +314,36 @@ class CallViewController: UIViewController {
         let isUsingFrontFacingCamera = self.callClient.inputs.camera.settings.facingMode == .user
         let newFacingMode: MediaTrackFacingMode = isUsingFrontFacingCamera ? .environment : .user
 
-        self.callClient.updateInputs(.set(
-            camera: .set(
-                settings: .set(facingMode: .set(newFacingMode))
-            )
-        ), completion: nil)
+        Task { @MainActor in
+            _ = try await self.callClient.updateInputs(.set(
+                camera: .set(
+                    settings: .set(facingMode: .set(newFacingMode))
+                )
+            ))
+        }
     }
 
     @IBAction private func toggleAdaptiveHEVC(_ sender: UIButton) {
-        self.adaptiveHEVCEnabled = !self.adaptiveHEVCEnabled
-        if self.adaptiveHEVCEnabled {
-            self.callClient.updatePublishing(.set(
-                camera: .set(
-                    isPublishing: .set(self.cameraIsPublishing),
-                    sendSettings: .set(
-                        maxQuality: .set(.high),
-                        encodings: .set(.mode(.adaptiveHEVC))
+        Task { @MainActor in
+            self.adaptiveHEVCEnabled = !self.adaptiveHEVCEnabled
+            if self.adaptiveHEVCEnabled {
+                _ = try await self.callClient.updatePublishing(.set(
+                    camera: .set(
+                        isPublishing: .set(self.cameraIsPublishing),
+                        sendSettings: .set(
+                            maxQuality: .set(.high),
+                            encodings: .set(.mode(.adaptiveHEVC))
+                        )
                     )
-                )
-            ), completion: nil)
-        } else {
-            self.callClient.updatePublishing(.set(
-                camera: .set(
-                    isPublishing: .set(self.cameraIsPublishing),
-                    sendSettings: .fromDefaults
-                )
-            ), completion: nil)
+                ))
+            } else {
+                _ = try await self.callClient.updatePublishing(.set(
+                    camera: .set(
+                        isPublishing: .set(self.cameraIsPublishing),
+                        sendSettings: .fromDefaults
+                    )
+                ))
+            }
         }
     }
 
@@ -379,10 +387,12 @@ class CallViewController: UIViewController {
             let selectedDevice = self.callClient.availableDevices.audio[selectedRow]
             self.pickerViewButton.setTitle(selectedDevice.label, for: .normal)
             let preferredAudioDevice = AudioDeviceType(deviceID: selectedDevice.deviceID)
-            self.callClient.set(preferredAudioDevice: preferredAudioDevice, completion: nil)
+            Task { @MainActor in
+                _ = try await self.callClient.setPreferredAudioDevice(preferredAudioDevice)
+            }
         })
 
-        self.present(alert, animated: true, completion: nil)
+        self.present(alert, animated: true)
     }
 
     @IBAction private func toggleLocalView(_ sender: UIButton) {
@@ -392,42 +402,48 @@ class CallViewController: UIViewController {
     }
 
     @IBAction private func joinOrLeave(_ sender: UIButton) {
-        let callState = self.callClient.callState
-        switch callState {
-        case .initialized, .left:
-            let roomURLString = self.roomURLField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            guard let roomURL = URL(string: roomURLString) else {
-                return
-            }
-            let tokenString = self.tokenField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let roomToken = tokenString.map { MeetingToken(stringValue: $0) }
-            
-            self.callClient.join(url: roomURL, token: roomToken) { result in
-                switch result {
-                case .success(_):
-                    logger.info("Joined room: '\(roomURLString)'")
-                    self.roomURLString = roomURLString
-                case .failure(let error):
-                    logger.error("\(error)")
+        Task { @MainActor in
+            let callState = self.callClient.callState
+            switch callState {
+            case .initialized, .left:
+                let roomURLString = self.roomURLField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                guard let roomURL = URL(string: roomURLString) else {
+                    return
                 }
+                let tokenString = self.tokenField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let roomToken = tokenString.map { MeetingToken(stringValue: $0) }
+
+                do {
+                    _ = try await self.callClient.join(url: roomURL, token: roomToken)
+                } catch {
+                    logger.error("\(error)")
+                    return
+                }
+
+                logger.info("Joined room: '\(roomURLString)'")
+                self.roomURLString = roomURLString
+            case .joined:
+                try await self.callClient.leave()
+            case .joining, .leaving:
+                break
+            @unknown case _:
+                fatalError()
             }
-        case .joined:
-            self.callClient.leave(completion: nil)
-        case .joining, .leaving:
-            break
-        @unknown case _:
-            fatalError()
         }
     }
 
     @IBAction private func toggleCameraInput(_ sender: UIButton) {
         let isEnabled = !self.callClient.inputs.camera.isEnabled
-        self.callClient.setInputEnabled(.camera, isEnabled, completion: nil)
+        Task { @MainActor in
+            _ = try await self.callClient.setInputEnabled(.camera, isEnabled)
+        }
     }
 
     @IBAction private func toggleMicrophoneInput(_ sender: UIButton) {
         let isEnabled = !self.callClient.inputs.microphone.isEnabled
-        self.callClient.setInputEnabled(.microphone, isEnabled, completion: nil)
+        Task { @MainActor in
+            _ = try await self.callClient.setInputEnabled(.microphone, isEnabled)
+        }
     }
 
     @IBAction private func toggleCustomVideoInput(_ sender: UIButton) {
@@ -462,21 +478,26 @@ class CallViewController: UIViewController {
     }
 
     @IBAction private func toggleCameraPublishing(_ sender: UIButton) {
-        let isPublishing = !self.callClient.publishing.camera.isPublishing
-        self.callClient.setIsPublishing(.camera, isPublishing, completion: nil)
+        Task { @MainActor in
+            let isPublishing = !self.callClient.publishing.camera.isPublishing
+            _ = try await self.callClient.setIsPublishing(.camera, isPublishing)
+        }
     }
 
     @IBAction private func toggleMicrophonePublishing(_ sender: UIButton) {
-        let isPublishing = !self.callClient.publishing.microphone.isPublishing
-        self.callClient.setIsPublishing(.microphone, isPublishing, completion: nil)
+        Task { @MainActor in
+            let isPublishing = !self.callClient.publishing.microphone.isPublishing
+            _ = try await self.callClient.setIsPublishing(.microphone, isPublishing)
+        }
     }
 
     @IBAction private func toggleCustomVideoPublishing(_ sender: UIButton) {
-        let isPublishing = self.callClient.publishing.customVideo[customVideoName]?.isPublishing != true
-        self.callClient.updatePublishing(.set(
-            customVideo: [
-                customVideoName: .publishing(isPublishing)
-            ]), completion: nil)
+        Task { @MainActor in
+            let isPublishing = self.callClient.publishing.customVideo[customVideoName]?.isPublishing != true
+            _ = try await self.callClient.updatePublishing(.set(
+                customVideo: [customVideoName: .publishing(isPublishing)]
+            ))
+        }
     }
 
     // MARK: - Video size handling
@@ -745,10 +766,11 @@ extension CallViewController: CallClientDelegate {
     ) {
         logger.debug("System broadcast started")
 
-        callClient.updateInputs(
-            .set(screenVideo: .set(isEnabled: .set(true))),
-            completion: nil
-        )
+        Task { @MainActor in
+            _ = try await callClient.updateInputs(
+                .set(screenVideo: .set(isEnabled: .set(true)))
+            )
+        }
     }
 
     public func callClientDidDetectEndOfSystemBroadcast(
@@ -756,10 +778,11 @@ extension CallViewController: CallClientDelegate {
     ) {
         logger.debug("System broadcast ended")
 
-        callClient.updateInputs(
-            .set(screenVideo: .set(isEnabled: .set(false))),
-            completion: nil
-        )
+        Task { @MainActor in
+            _ = try await callClient.updateInputs(
+                .set(screenVideo: .set(isEnabled: .set(false)))
+            )
+        }
     }
 
     func callClient(

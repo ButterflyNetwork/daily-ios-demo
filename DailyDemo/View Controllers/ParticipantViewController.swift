@@ -129,42 +129,44 @@ final class ParticipantViewController: UIViewController {
     ) {
         guard let callClient else { return }
 
-        // Reduce video quality of remote participants not currently displayed:
-        //
-        // This is done by moving participants from one pre-defined profile to another,
-        // rather than changing each participant's settings individually:
-        var mediaUpdates: [String : Update<CameraSubscriptionSettingsUpdate>] = [:]
-        if let customVideoTrackName {
-            mediaUpdates = [
-                customVideoTrackName: .set(
-                    subscriptionState: .set(.subscribed),
-                    receiveSettings: .set(maxQuality: .set(.high))
-                )
-            ]
-//            mediaUpdates = [customVideoTrackName: .set(subscriptionState: .set(.subscribed))]
-        }
-        callClient.updateSubscriptions(
-            forParticipants: .set(
-                [
-                    participant.id: .set(
-                        profile: .set(.activeRemote),
-                        media: .set(
-                            camera: nil,
-                            customVideo: mediaUpdates
-                        )
-                    ),
+        Task { @MainActor in
+
+            // Reduce video quality of remote participants not currently displayed:
+            //
+            // This is done by moving participants from one pre-defined profile to another,
+            // rather than changing each participant's settings individually:
+            var mediaUpdates: [String : Update<CameraSubscriptionSettingsUpdate>] = [:]
+            if let customVideoTrackName {
+                mediaUpdates = [
+                    customVideoTrackName: .set(
+                        subscriptionState: .set(.subscribed),
+                        receiveSettings: .set(maxQuality: .set(.high))
+                    )
                 ]
-            ),
-//            participantsWithProfiles: .set(
-//                [
-//                    .activeRemote: .set(
-//                        profile: .set(.base),
-//                        media: nil
-//                    )
-//                ]
-//            ),
-            completion: nil
-        )
+//                mediaUpdates = [customVideoTrackName: .set(subscriptionState: .set(.subscribed))]
+            }
+            _ = try await callClient.updateSubscriptions(
+                forParticipants: .set(
+                    [
+                        participant.id: .set(
+                            profile: .set(.activeRemote),
+                            media: .set(
+                                camera: nil,
+                                customVideo: mediaUpdates
+                            )
+                        ),
+                    ]
+                )
+//                participantsWithProfiles: .set(
+//                    [
+//                        .activeRemote: .set(
+//                            profile: .set(.base),
+//                            media: nil
+//                        )
+//                    ]
+//                ),
+            )
+        }
     }
 }
 
