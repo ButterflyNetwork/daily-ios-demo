@@ -320,11 +320,13 @@ class CallViewController: UIViewController {
         if let timeOfSend {
             let delta = Date().timeIntervalSince(timeOfSend)
             logger.info("Received echo after \(delta)s")
+            self.timeOfSend = nil
         }
 
-        self.timeOfSend = nil
         if message.message.starts(with: "/echo") {
             try await sendMessage(message.message, to: senderId)
+        } else if let command = message.embeddedCommand {
+            logger.info("!!! Received command \(command)")
         }
     }
 
@@ -345,8 +347,6 @@ class CallViewController: UIViewController {
 
         logger.info("Sending hello app message \"\(chatMessage.message)\"")
 
-        self.timeOfSend = Date()
-
         do {
             try await callClient.sendAppMessage(json: messageData, to: .participant(recipient))
         } catch {
@@ -362,7 +362,14 @@ class CallViewController: UIViewController {
         Task { @MainActor in
             let remoteParticipantIds = callClient.participants.remote.values.map(\.id)
             for participantId in remoteParticipantIds {
-                try await sendMessage("/echo Hello, \(participantId)!", to: participantId)
+//                self.timeOfSend = Date()
+//                try await sendMessage("/echo Hello, \(participantId)!", to: participantId)
+
+                let command = Command.allCases.randomElement()!
+                logger.info("!!! sending \(command)")
+                let commandData = try JSONEncoder().encode(command)
+                let commandDataString = commandData.base64EncodedString()
+                try await sendMessage(commandDataString, to: participantId)
             }
         }
     }

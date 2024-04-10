@@ -14,3 +14,16 @@ public struct PrebuiltChatAppMessage: Codable {
         self.message = message
     }
 }
+
+enum Command: Codable, CaseIterable {
+    case foo
+    case bar
+    case baz
+}
+
+extension PrebuiltChatAppMessage {
+    var embeddedCommand: Command? {
+        guard let messageData = Data(base64Encoded: message) else { return nil }
+        return try? JSONDecoder().decode(Command.self, from: messageData)
+    }
+}
