@@ -308,7 +308,64 @@ class CallViewController: UIViewController {
         } ?? 0
     }
 
+    // MARK: App messages
+
+    private func didReceiveMessage(_ message: PrebuiltChatAppMessage, from senderId: ParticipantID) async throws {
+        // Show as a banner:
+        showPrebuiltChatAppMessageNotification(
+            title: message.senderName,
+            body: message.message
+        )
+
+        if let timeOfSend {
+            let delta = Date().timeIntervalSince(timeOfSend)
+            logger.info("Received echo after \(delta)s")
+        }
+
+        self.timeOfSend = nil
+        if message.message.starts(with: "/echo") {
+            try await sendMessage(message.message, to: senderId)
+        }
+    }
+
+    private func sendMessage(_ message: String, to recipient: ParticipantID) async throws {
+        let chatMessage = PrebuiltChatAppMessage(
+            message: message,
+            senderName: callClient.username ?? "iOS Participant"
+        )
+
+        let messageData: Data
+        do {
+            let encoder = JSONEncoder()
+            messageData = try encoder.encode(chatMessage)
+        } catch {
+            logger.error("App message encoding error: \(error)")
+            return
+        }
+
+        logger.info("Sending hello app message \"\(chatMessage.message)\"")
+
+        self.timeOfSend = Date()
+
+        do {
+            try await callClient.sendAppMessage(json: messageData, to: .participant(recipient))
+        } catch {
+            logger.error("Failed to send hello app message: \(error)")
+        }
+    }
+
     // MARK: - Button actions
+
+    private var timeOfSend: Date?
+
+    @IBAction func sayHelloToEveryone() {
+        Task { @MainActor in
+            let remoteParticipantIds = callClient.participants.remote.values.map(\.id)
+            for participantId in remoteParticipantIds {
+                try await sendMessage("/echo Hello, \(participantId)!", to: participantId)
+            }
+        }
+    }
 
     @IBAction private func flipCamera(_ sender: UIButton) {
         let isUsingFrontFacingCamera = self.callClient.inputs.camera.settings.facingMode == .user
@@ -874,12 +931,6 @@ extension CallViewController: CallClientDelegate {
         _ callClient: CallClient,
         activeSpeakerChanged activeSpeaker: Participant?
     ) {
-//        logger.debug("Active speaker changed:")
-//        logger.debug("\(dumped(activeSpeaker))")
-//
-//        assert(callClient.activeSpeaker == activeSpeaker)
-//
-//        updateParticipantViewControllers()
     }
 
     func callClient(
@@ -920,14 +971,8 @@ extension CallViewController: CallClientDelegate {
 
         logger.info("Got app message from \(senderID)")
 
-        guard PrebuiltChatAppMessage.shouldExpectAppMessageToBePrebuiltChatMessage(jsonData) else {
-            logger.info("Not a chat message")
-            return
-        }
-
         do {
             let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601Modified
             chatMessage = try decoder.decode(
                 PrebuiltChatAppMessage.self,
                 from: jsonData
@@ -939,35 +984,8 @@ extension CallViewController: CallClientDelegate {
 
         logger.info("Got chat message \"\(chatMessage.message)\" from \"\(chatMessage.senderName)\" (\(senderID))")
 
-        showPrebuiltChatAppMessageNotification(
-            title: chatMessage.senderName,
-            body: chatMessage.message
-        )
-
-        guard chatMessage.message.starts(with: "/echo") else { return }
-
-        let messageData: Data
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601Modified
-            messageData = try encoder.encode(
-                PrebuiltChatAppMessage(
-                    message: chatMessage.message,
-                    senderName: callClient.username ?? "iOS Participant",
-                    roomName: "main-room"
-                )
-            )
-        } catch {
-            logger.error("App message encoding error: \(error)")
-            return
-        }
-
-        logger.info("Sending app message \"\(chatMessage.message)\"")
-
-        callClient.sendAppMessage(json: messageData, to: .all) { result in
-            if case .failure(let error) = result {
-                logger.error("Failed to send app message: \(error)")
-            }
+        Task { @MainActor in
+            try await self.didReceiveMessage(chatMessage, from: senderID)
         }
     }
 
@@ -1047,45 +1065,5 @@ extension CallViewController: UIPickerViewDataSource {
         numberOfRowsInComponent component: Int
     ) -> Int {
         self.callClient.availableDevices.audio.count
-    }
-}
-
-// MARK: - Date coding
-
-extension ISO8601DateFormatter {
-    // Cached customized ISO8601 date formatter:
-    static let formatterWithFractionalSeconds: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        // The default `.iso8601` dateEncodingStrategy/dateDecodingStrategy
-        // doesn't support fractional seconds (aka milliseconds).
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-}
-
-extension JSONEncoder.DateEncodingStrategy {
-    // The default `.iso8601` dateEncodingStrategy/dateDecodingStrategy
-    // doesn't support fractional seconds (aka milliseconds).
-    static let iso8601Modified = JSONEncoder.DateEncodingStrategy.custom { date, encoder in
-        ISO8601DateFormatter.formatterWithFractionalSeconds.string(from: date)
-    }
-}
-
-// The default `.iso8601` dateEncodingStrategy/dateDecodingStrategy
-// doesn't support fractional seconds (aka milliseconds).
-extension JSONDecoder.DateDecodingStrategy {
-    static let iso8601Modified = JSONDecoder.DateDecodingStrategy.custom { decoder in
-        let formattedDate = try String(from: decoder)
-
-        guard let date = ISO8601DateFormatter.formatterWithFractionalSeconds.date(from: formattedDate) else {
-            throw DecodingError.dataCorrupted(
-                .init(
-                    codingPath: decoder.codingPath,
-                    debugDescription: "Expected date string to be ISO8601-formatted."
-                )
-            )
-        }
-
-        return date
     }
 }
