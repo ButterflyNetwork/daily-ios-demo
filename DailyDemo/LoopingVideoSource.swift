@@ -162,18 +162,6 @@ extension AVPlayerItem {
     }
 }
 
-//private static func createLoopingPlayer(
-//    templatePlayerItem: AVPlayerItem
-//) -> (player: AVQueuePlayer, playerLooper: AVPlayerLooper) {
-//    let player = AVQueuePlayer()
-//    player.isMuted = true
-//    let playerLooper = AVPlayerLooper(
-//        player: player,
-//        templateItem: templatePlayerItem
-//    )
-//    return (player, playerLooper)
-//}
-
 extension AVQueuePlayer {
     static func player() -> AVQueuePlayer {
         let player = AVQueuePlayer()

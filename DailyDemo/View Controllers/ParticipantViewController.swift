@@ -52,21 +52,6 @@ final class ParticipantViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-//        view.addSubview(videoView)
-//        view.addSubview(secondaryVideoView)
-//
-//        NSLayoutConstraint.activate([
-//            videoView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
-//            videoView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-//            videoView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-//            videoView.widthAnchor.constraint(equalTo: view.safeAreaLayoutGuide.widthAnchor, multiplier: 0.5),
-//
-//            secondaryVideoView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
-//            secondaryVideoView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-//            secondaryVideoView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-//            secondaryVideoView.widthAnchor.constraint(equalTo: view.safeAreaLayoutGuide.widthAnchor, multiplier: 0.5),
-//        ])
-
         let stackView = UIStackView(arrangedSubviews: [videoView, secondaryVideoView])
         stackView.axis = .horizontal
         stackView.frame = view.bounds
@@ -84,7 +69,6 @@ final class ParticipantViewController: UIViewController {
         let secondaryVideoTrack = screenTrack ?? customVideoTrack
         let username = participant?.info.username
 
-//        let isScreenOrCustomVideoTrack = screenTrack != nil || customVideoTrack != nil
         let hasVideo = videoTrack != nil
         let hasSecondaryVideo = secondaryVideoTrack != nil
 
@@ -101,12 +85,10 @@ final class ParticipantViewController: UIViewController {
         self.videoView.isHidden = !hasVideo
 
         // Change video's scale mode based on track type:
-//        self.videoView.videoScaleMode = isScreenOrCustomVideoTrack ? .fit : .fill
         self.videoView.videoScaleMode = .fill
 
         self.secondaryVideoView.track = secondaryVideoTrack
         self.secondaryVideoView.isHidden = !hasSecondaryVideo
-//        self.secondaryVideoView.videoScaleMode = .fit
         self.secondaryVideoView.videoScaleMode = .fill
 
         // Don't change subscriptions for local view controller otherwise
@@ -143,7 +125,6 @@ final class ParticipantViewController: UIViewController {
                         receiveSettings: .set(maxQuality: .set(.high))
                     )
                 ]
-//                mediaUpdates = [customVideoTrackName: .set(subscriptionState: .set(.subscribed))]
             }
             _ = try await callClient.updateSubscriptions(
                 forParticipants: .set(
@@ -157,14 +138,6 @@ final class ParticipantViewController: UIViewController {
                         ),
                     ]
                 )
-//                participantsWithProfiles: .set(
-//                    [
-//                        .activeRemote: .set(
-//                            profile: .set(.base),
-//                            media: nil
-//                        )
-//                    ]
-//                ),
             )
         }
     }

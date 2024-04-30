@@ -211,7 +211,6 @@ class CallViewController: UIViewController {
     }
 
     private func setupDevModeFeaturesViews() {
-//        setDevModeFeaturesViewsHidden(true)
         setDevModeFeaturesViewsHidden(false)
 
         let devModeToggleGesture = UILongPressGestureRecognizer(
@@ -356,14 +355,17 @@ class CallViewController: UIViewController {
 
     // MARK: - Button actions
 
+    private let isBenchmarking = false
     private var timeOfSend: Date?
 
     @IBAction func sayHelloToEveryone() {
         Task { @MainActor in
             let remoteParticipantIds = callClient.participants.remote.values.map(\.id)
             for participantId in remoteParticipantIds {
-//                self.timeOfSend = Date()
-//                try await sendMessage("/echo Hello, \(participantId)!", to: participantId)
+                if isBenchmarking {
+                    self.timeOfSend = Date()
+                    try await sendMessage("/echo Hello, \(participantId)!", to: participantId)
+                }
 
                 let command = Command.allCases.randomElement()!
                 logger.info("!!! sending \(command)")
