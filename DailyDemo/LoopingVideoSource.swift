@@ -47,7 +47,7 @@ class LoopingVideoSource: CustomVideoSource {
         // when leaving a call.
         // I have no explanation for why this stalling occurs :/
         self.playerStoppedObservation = player.attachWorkaroundForPlayerStallingOnLeave()
-        
+
         DispatchQueue.main.async {
             player.play()
         }
@@ -162,18 +162,6 @@ extension AVPlayerItem {
     }
 }
 
-//private static func createLoopingPlayer(
-//    templatePlayerItem: AVPlayerItem
-//) -> (player: AVQueuePlayer, playerLooper: AVPlayerLooper) {
-//    let player = AVQueuePlayer()
-//    player.isMuted = true
-//    let playerLooper = AVPlayerLooper(
-//        player: player,
-//        templateItem: templatePlayerItem
-//    )
-//    return (player, playerLooper)
-//}
-
 extension AVQueuePlayer {
     static func player() -> AVQueuePlayer {
         let player = AVQueuePlayer()
@@ -208,8 +196,8 @@ extension CMTime {
         loopDuration: CMTime
     ) -> Int64 {
         return (
-            Int64(currentLoopTime.seconds + Double(numberOfPriorLoops) * loopDuration.seconds)
-            //        currentLoopTime.toNs() + Int64(numberOfPriorLoops) * loopDuration.toNs()
+            currentLoopTime.toNs() +
+            Int64(numberOfPriorLoops) * loopDuration.toNs()
         )
     }
 }
