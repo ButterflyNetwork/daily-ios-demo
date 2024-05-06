@@ -1,3 +1,15 @@
+
+# Notes about demo for Butterfly:
+
+This branch demonstrates transmitting "commands" over a "data pipe"
+1) devices A & B run the demo
+2) A & B join the same room
+3) A taps "hello" (👋) button
+Expected: B's console should display receipt of the command
+
+NOTE: Can enable round-trip benchmarking by setting `CallViewController`'s `isBenchmarking = true`.
+
+
 # A video chat app using the Daily Client SDK for iOS
 
 This demo is meant to showcase a basic video chat app that uses Daily's native [iOS SDK](https://docs.daily.co/guides/products/mobile#introducing-dailys-native-mobile-libraries-beta) mobile library.
