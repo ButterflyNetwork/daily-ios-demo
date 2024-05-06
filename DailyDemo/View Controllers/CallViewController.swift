@@ -211,7 +211,6 @@ class CallViewController: UIViewController {
     }
 
     private func setupDevModeFeaturesViews() {
-//        setDevModeFeaturesViewsHidden(true)
         setDevModeFeaturesViewsHidden(false)
 
         let devModeToggleGesture = UILongPressGestureRecognizer(

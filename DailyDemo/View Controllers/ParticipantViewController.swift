@@ -156,15 +156,15 @@ final class ParticipantViewController: UIViewController {
                             )
                         ),
                     ]
+                ),
+                participantsWithProfiles: .set(
+                    [
+                        .activeRemote: .set(
+                            profile: .set(.base),
+                            media: nil
+                        )
+                    ]
                 )
-//                participantsWithProfiles: .set(
-//                    [
-//                        .activeRemote: .set(
-//                            profile: .set(.base),
-//                            media: nil
-//                        )
-//                    ]
-//                ),
             )
         }
     }

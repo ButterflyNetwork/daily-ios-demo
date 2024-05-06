@@ -6,9 +6,9 @@ import AVFoundation
 /// It automatically pauses when the custom video track is removed or replaced with
 /// `removeCustomVideoTrack()` or `updateCustomVideoTrack()` respectively.
 class LoopingVideoSource: CustomVideoSource {
-    
+
     // MARK: - Public
-    
+
     /// Method required by `CustomVideoSource`
     func attachFrameConsumer(_ frameConsumer: CustomVideoFrameConsumer) {
         dispatchQueue.async {
@@ -16,7 +16,7 @@ class LoopingVideoSource: CustomVideoSource {
             self.resume()
         }
     }
-    
+
     /// Method required by `CustomVideoSource`
     func detachFrameConsumer() {
         dispatchQueue.async {
@@ -24,9 +24,9 @@ class LoopingVideoSource: CustomVideoSource {
             self.frameConsumer = nil
         }
     }
-    
+
     // MARK: - Private Helpers
-    
+
     private let dispatchQueue = DispatchQueue(label: "co.daily.DailyDemo.LoopingVideoSource")
     private var player: AVQueuePlayer?
     private var playerLooper: AVPlayerLooper?
@@ -35,14 +35,14 @@ class LoopingVideoSource: CustomVideoSource {
     private var frameConsumer: CustomVideoFrameConsumer?
     private var displayLink: CADisplayLink?
     private var playerStoppedObservation: NSKeyValueObservation?
-    
+
     private func resume() {
         if self.player == nil {
             setup()
         }
-        
+
         guard let player else { return }
-        
+
         // Attach a workaround mechanism for the player unexpectedly stalling
         // when leaving a call.
         // I have no explanation for why this stalling occurs :/
@@ -52,19 +52,19 @@ class LoopingVideoSource: CustomVideoSource {
             player.play()
         }
     }
-    
+
     private func pause() {
         guard let player else { return }
-        
+
         // Detach the workaround mechanism for the player unexpectedly stalling.
         // We're about to intentionally pause the player.
         self.playerStoppedObservation = nil
-        
+
         DispatchQueue.main.async {
             player.pause()
         }
     }
-    
+
     private func setup() {
         let templatePlayerItem = AVPlayerItem.templatePlayerItem()
         let player = AVQueuePlayer.player()
@@ -79,7 +79,7 @@ class LoopingVideoSource: CustomVideoSource {
             guard let self, let playerItem = player.currentItem else { return }
             self.currentPlayerItemOutput = playerItem.wireUpCurrentPlayerItemOutput()
         }
-        
+
         // Check continually for newly-available frames from the current player
         // item.
         self.displayLink = CADisplayLink(
@@ -90,7 +90,7 @@ class LoopingVideoSource: CustomVideoSource {
     }
 
     // MARK: - AVPlayerItemOutputPullDelegate
-    
+
     @objc func checkForNewlyAvailableFrame() {
         guard
             let frameConsumer,
@@ -100,11 +100,11 @@ class LoopingVideoSource: CustomVideoSource {
         else {
             return
         }
-        
+
         let itemTime = currentPlayerItemOutput.itemTime(
             forHostTime: CACurrentMediaTime()
         )
-        
+
         guard
             currentPlayerItemOutput.hasNewPixelBuffer(
                 forItemTime: itemTime
@@ -116,8 +116,8 @@ class LoopingVideoSource: CustomVideoSource {
         else {
             return
         }
-        
-        // Note: here we use playerItem.duration since we can assume all 
+
+        // Note: here we use playerItem.duration since we can assume all
         // player items are the same duration (they're copies of the template).
         // Ideally we could use the template item directly, but its duration
         // isn't ever loaded since it's never played.
@@ -126,7 +126,7 @@ class LoopingVideoSource: CustomVideoSource {
             numberOfPriorLoops: playerLooper.loopCount,
             loopDuration: playerItem.duration
         )
-        
+
         frameConsumer.sendFrame(buffer, withTimeStampNs: overallTimeNs)
     }
 }
@@ -134,7 +134,7 @@ class LoopingVideoSource: CustomVideoSource {
 extension CMTime {
     func toNs() -> Int64 {
         var selfWithNsTimescale = self
-        
+
         // Convert timescale to nanoseconds, if needed.
         if self.timescale != 1_000_000_000 {
             selfWithNsTimescale = self.convertScale(
@@ -142,7 +142,7 @@ extension CMTime {
                 method: .default
             )
         }
-        
+
         return selfWithNsTimescale.value
     }
 }
