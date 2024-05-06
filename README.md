@@ -1,12 +1,23 @@
 
-# Notes about demo for Butterfly:
+# Notes about demos for Butterfly:
 
+There are two branches in this repo:
+
+## `butterfly/two-sources`
+This branch demonstrates transmitting two video sources from one host to another. To demonstrate:
+1) devices A & B run the demo
+2) A & B join the same room (both should be broadcasting camera video by default)
+3) A enables "custom video" (🎬) Input and Publishing
+
+Expected: after a moment or two, B will see both video feeds side by side
+
+## `butterfly/data-pipe`
 This branch demonstrates transmitting "commands" over a "data pipe"
 1) devices A & B run the demo
 2) A & B join the same room
 3) A taps "hello" (👋) button
-Expected: B's console should display receipt of the command
 
+Expected: B's console should display receipt of the command
 NOTE: Can enable round-trip benchmarking by setting `CallViewController`'s `isBenchmarking = true`.
 
 
